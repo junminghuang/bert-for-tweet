@@ -1072,6 +1072,6 @@ if __name__ == "__main__":
   flags.mark_flag_as_required("output_dir")
 
   logger.info('Start')
-  logger.info(f'data_dir: {FLAGS.data_dir}')
+  logger.info('data_dir: ' + str(FLAGS.data_dir))
 
   tf.app.run()
