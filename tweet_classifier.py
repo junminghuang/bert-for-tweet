@@ -124,6 +124,8 @@ flags.DEFINE_integer(
     "num_tpu_cores", 8,
     "Only used if `use_tpu` is True. Total number of TPU cores to use.")
 
+# added by junming
+flags.DEFINE_string('identifier', 'bert', 'Name of this configuration')
 
 class InputExample(object):
   """A single training/test example for simple sequence classification."""
@@ -1058,7 +1060,7 @@ if __name__ == "__main__":
   import logging
   import datetime
   logger = logging.getLogger('tensorflow')
-  logger_info_handler = logging.FileHandler(datetime.datetime.now().strftime('bert-%Y-%m-%d-%H-%M-%S.log'))  # create a file handler
+  logger_info_handler = logging.FileHandler(datetime.datetime.now().strftime('{identifier}.log'.format(identifier=FLAGS.identifier)))  # create a logging file handler
   logger_info_handler.setLevel(logging.DEBUG)
   formatter = logging.Formatter('[%(asctime)s][%(levelname)s][%(filename)s:%(lineno)s] %(message)s',
                                 '%Y-%b-%d %H:%M:%S')
