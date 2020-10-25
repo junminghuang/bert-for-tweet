@@ -130,6 +130,7 @@ flags.DEFINE_string('identifier', 'bert', 'Name of this configuration')
 flags.DEFINE_string(name='train_file', default='train.tsv', help='file name to train')
 flags.DEFINE_string(name='dev_file', default='dev.tsv', help='file name to train')
 flags.DEFINE_string(name='test_file', default='test.tsv', help='file name to train')
+flags.DEFINE_string(name='predict_file', default='test_results.tsv', help='file name to train')
 
 class InputExample(object):
   """A single training/test example for simple sequence classification."""
@@ -1048,10 +1049,17 @@ def main(_):
 
     # Added by junming: generate the output file for prediction "/home/junmingh/virus/data-bert/test_result.tsv"
     test_file = Path(FLAGS.test_file)
-    if test_file.is_absolute():  # FLAGS.test_file="/home/junmingh/virus/data-bert/test.tsv"
-        output_predict_file = str(test_file.parent / (test_file.stem + '_results' + test_file.suffix))
-    else:  # FLAGS.test_file="test.tsv"
-        output_predict_file = str(Path(FLAGS.data_dir) / (test_file.stem + '_results' + test_file.suffix))
+    if Path(FLAGS.predict_file).is_absolute():  # if FLAGS.predict_file specifies a full path, do nothing. FLAGS.predict_file = '/home/junmingh/virus/data-bert/output.tsv'
+        output_predict_file = str(FLAGS.predict_file)
+    else:  # if FLAGS.predict_file specifies a relative filename path, infer its location from FLAGS.test_file or FLAGS.data_dir. FLAGS.predict_file = 'test_results.tsv'
+        if test_file.is_absolute():  # if FLAGS.test_file gives a location, use it
+            output_predict_file = str(test_file.parent / FLAGS.predict_file)  # ./test_results.tsv
+        else:  # if FLAGS.test_file does not give a location, use FLAGS.data_dir
+            output_predict_file = str(Path(FLAGS.data_dir) / FLAGS.predict_file)  # equivalent to os.path.join(FLAGS.data_dir, "test_results.tsv")
+    # if test_file.is_absolute():  # FLAGS.test_file="/home/junmingh/virus/data-bert/test.tsv"
+    #     output_predict_file = str(test_file.parent / (test_file.stem + '_results' + test_file.suffix))
+    # else:  # FLAGS.test_file="test.tsv"
+    #     output_predict_file = str(Path(FLAGS.data_dir) / (test_file.stem + '_results' + test_file.suffix))
     # output_predict_file = os.path.join(FLAGS.data_dir, "test_results.tsv")
     with tf.gfile.GFile(output_predict_file, "w") as writer:
       num_written_lines = 0
