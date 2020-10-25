@@ -418,20 +418,20 @@ class tweet_pairwise_processor(DataProcessor):
 class tweet_pointwise_processor(DataProcessor):
   """Processor for the MRPC data set (GLUE version)."""
 
-  def get_train_examples(self, data_dir):
+  def get_train_examples(self, data_dir, filename="train.tsv"):
     """See base class."""
     return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, "train.tsv")), "train")
+        self._read_tsv(os.path.join(data_dir, filename)), "train")
 
-  def get_dev_examples(self, data_dir):
+  def get_dev_examples(self, data_dir, filename="train.tsv"):
     """See base class."""
     return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, "dev.tsv")), "dev")
+        self._read_tsv(os.path.join(data_dir, filename)), "dev")
 
-  def get_test_examples(self, data_dir):
+  def get_test_examples(self, data_dir, filename="dev.tsv"):
     """See base class."""
     return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, "test.tsv")), "test")
+        self._read_tsv(os.path.join(data_dir, filename)), "test")
 
   def get_labels(self):
     """See base class."""
