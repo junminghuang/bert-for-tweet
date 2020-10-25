@@ -1051,12 +1051,7 @@ def main(_):
         output_predict_file = str(test_file.parent / (test_file.stem + '_results' + test_file.suffix))
     else:  # FLAGS.test_file="test.tsv"
         output_predict_file = str(Path(FLAGS.data_dir) / (test_file.stem + '_results' + test_file.suffix))
-
-        Path(FLAGS.test_file).parent / (Path(FLAGS.test_file).stem + '_results' + Path(FLAGS.test_file).suffix)
-
-        # filename="test.tsv"
-        filename = str(Path(data_dir) / filename)
-    output_predict_file = os.path.join(FLAGS.data_dir, "test_results.tsv")
+    # output_predict_file = os.path.join(FLAGS.data_dir, "test_results.tsv")
     with tf.gfile.GFile(output_predict_file, "w") as writer:
       num_written_lines = 0
       tf.logging.info("***** Predict results *****")
