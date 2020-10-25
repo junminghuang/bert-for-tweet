@@ -126,6 +126,9 @@ flags.DEFINE_integer(
 
 # added by junming
 flags.DEFINE_string('identifier', 'bert', 'Name of this configuration')
+flags.DEFINE_string(name='train_file', default='train.tsv', help='file name to train')
+flags.DEFINE_string(name='dev_file', default='dev.tsv', help='file name to train')
+flags.DEFINE_string(name='test_file', default='test.tsv', help='file name to train')
 
 class InputExample(object):
   """A single training/test example for simple sequence classification."""
@@ -434,7 +437,7 @@ class tweet_pointwise_processor(DataProcessor):
     """See base class."""
     if not Path(filename).is_absolute():  # filename="test.tsv"
         filename = str(Path(data_dir) / filename)  # filename="/home/junmingh/virus/data-labeled-tweet/test.tsv"
-    return self._create_examples(self._read_tsv(ofilename), "test")
+    return self._create_examples(self._read_tsv(filename), "test")
 
   def get_labels(self):
     """See base class."""
