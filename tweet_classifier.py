@@ -424,19 +424,19 @@ class tweet_pointwise_processor(DataProcessor):
   def get_train_examples(self, data_dir, filename="train.tsv"):
     """See base class."""
     if not Path(filename).is_absolute():  # filename="train.tsv"
-        filename = str(Path(data_dir) / filename)  # filename="/home/junmingh/virus/data-labeled-tweet/train.tsv"
+        filename = str(Path(data_dir) / filename)  # filename="/home/junmingh/virus/data-bert/train.tsv"
     return self._create_examples(self._read_tsv(filename), "train")
 
   def get_dev_examples(self, data_dir, filename="dev.tsv"):
     """See base class."""
     if not Path(filename).is_absolute():  # filename="dev.tsv"
-        filename = str(Path(data_dir) / filename)  # filename="/home/junmingh/virus/data-labeled-tweet/dev.tsv"
+        filename = str(Path(data_dir) / filename)  # filename="/home/junmingh/virus/data-bert/dev.tsv"
     return self._create_examples(self._read_tsv(filename), "dev")
 
   def get_test_examples(self, data_dir, filename="test.tsv"):
     """See base class."""
     if not Path(filename).is_absolute():  # filename="test.tsv"
-        filename = str(Path(data_dir) / filename)  # filename="/home/junmingh/virus/data-labeled-tweet/test.tsv"
+        filename = str(Path(data_dir) / filename)  # filename="/home/junmingh/virus/data-bert/test.tsv"
     return self._create_examples(self._read_tsv(filename), "test")
 
   def get_labels(self):
@@ -928,7 +928,7 @@ def main(_):
   num_train_steps = None
   num_warmup_steps = None
   if FLAGS.do_train:
-    train_examples = processor.get_train_examples(FLAGS.data_dir)
+    train_examples = processor.get_train_examples(data_dir=FLAGS.data_dir, filename=FLAGS.train_file)
     num_train_steps = int(
         len(train_examples) / FLAGS.train_batch_size * FLAGS.num_train_epochs)
     num_warmup_steps = int(num_train_steps * FLAGS.warmup_proportion)
@@ -969,7 +969,7 @@ def main(_):
     estimator.train(input_fn=train_input_fn, max_steps=num_train_steps)
 
   if FLAGS.do_eval:
-    eval_examples = processor.get_dev_examples(FLAGS.data_dir)
+    eval_examples = processor.get_dev_examples(data_dir=FLAGS.data_dir, filename=FLAGS.dev_file)
     num_actual_eval_examples = len(eval_examples)
     if FLAGS.use_tpu:
       # TPU requires a fixed batch size for all batches, therefore the number
@@ -1015,7 +1015,7 @@ def main(_):
         writer.write("%s = %s\n" % (key, str(result[key])))
 
   if FLAGS.do_predict:
-    predict_examples = processor.get_test_examples(FLAGS.data_dir)
+    predict_examples = processor.get_test_examples(data_dir=FLAGS.data_dir, filename=FLAGS.test_file)
     num_actual_predict_examples = len(predict_examples)
     if FLAGS.use_tpu:
       # TPU requires a fixed batch size for all batches, therefore the number
@@ -1045,6 +1045,17 @@ def main(_):
 
     result = estimator.predict(input_fn=predict_input_fn)
 
+    # Added by junming: generate the output file for prediction "/home/junmingh/virus/data-bert/test_result.tsv"
+    test_file = Path(FLAGS.test_file)
+    if test_file.is_absolute():  # FLAGS.test_file="/home/junmingh/virus/data-bert/test.tsv"
+        output_predict_file = str(test_file.parent / (test_file.stem + '_results' + test_file.suffix))
+    else:  # FLAGS.test_file="test.tsv"
+        output_predict_file = str(Path(FLAGS.data_dir) / (test_file.stem + '_results' + test_file.suffix))
+
+        Path(FLAGS.test_file).parent / (Path(FLAGS.test_file).stem + '_results' + Path(FLAGS.test_file).suffix)
+
+        # filename="test.tsv"
+        filename = str(Path(data_dir) / filename)
     output_predict_file = os.path.join(FLAGS.data_dir, "test_results.tsv")
     with tf.gfile.GFile(output_predict_file, "w") as writer:
       num_written_lines = 0
