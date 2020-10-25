@@ -26,6 +26,7 @@ import modeling
 import optimization
 import tokenization
 import tensorflow as tf
+from pathlib import Path
 
 flags = tf.flags
 
