@@ -420,18 +420,21 @@ class tweet_pointwise_processor(DataProcessor):
 
   def get_train_examples(self, data_dir, filename="train.tsv"):
     """See base class."""
-    return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, filename)), "train")
+    if not Path(filename).is_absolute():  # filename="train.tsv"
+        filename = str(Path(data_dir) / filename)  # filename="/home/junmingh/virus/data-labeled-tweet/train.tsv"
+    return self._create_examples(self._read_tsv(filename), "train")
 
-  def get_dev_examples(self, data_dir, filename="train.tsv"):
+  def get_dev_examples(self, data_dir, filename="dev.tsv"):
     """See base class."""
-    return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, filename)), "dev")
+    if not Path(filename).is_absolute():  # filename="dev.tsv"
+        filename = str(Path(data_dir) / filename)  # filename="/home/junmingh/virus/data-labeled-tweet/dev.tsv"
+    return self._create_examples(self._read_tsv(filename), "dev")
 
-  def get_test_examples(self, data_dir, filename="dev.tsv"):
+  def get_test_examples(self, data_dir, filename="test.tsv"):
     """See base class."""
-    return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, filename)), "test")
+    if not Path(filename).is_absolute():  # filename="test.tsv"
+        filename = str(Path(data_dir) / filename)  # filename="/home/junmingh/virus/data-labeled-tweet/test.tsv"
+    return self._create_examples(self._read_tsv(ofilename), "test")
 
   def get_labels(self):
     """See base class."""
