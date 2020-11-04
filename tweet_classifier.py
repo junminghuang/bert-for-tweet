@@ -128,9 +128,11 @@ flags.DEFINE_integer(
 # added by junming
 flags.DEFINE_string('identifier', 'bert', 'Name of this configuration')
 flags.DEFINE_string(name='train_file', default='train.tsv', help='file name to train')
-flags.DEFINE_string(name='dev_file', default='dev.tsv', help='file name to train')
-flags.DEFINE_string(name='test_file', default='test.tsv', help='file name to train')
-flags.DEFINE_string(name='predict_file', default='test_results.tsv', help='file name to train')
+flags.DEFINE_string(name='dev_file', default='dev.tsv', help='file name to validate')
+flags.DEFINE_string(name='test_file', default='test.tsv', help='file name to predict')
+flags.DEFINE_string(name='predict_file', default='test_results.tsv', help='file name to output')
+flags.DEFINE_string(name='test_files', default='', help='files to predict')  # reserved
+flags.DEFINE_string(name='predict_files', default='test_results.tsv', help='files to output')  # reserved
 
 class InputExample(object):
   """A single training/test example for simple sequence classification."""
@@ -903,6 +905,29 @@ def main(_):
   if task_name not in processors:
     raise ValueError("Task not found: %s" % (task_name))
 
+  # Added by junming: require FLAGS.test_file be (a list of) absolute path, require FLAGS.predict_file be absolute path or missing
+  # test_file=/home/junmingh/virus/data-bert/test1.tsv|/home/junmingh/virus/data-bert/test2.tsv
+  # --test_file=/home/junmingh/virus/a.tsv
+  # --test_file=/home/junmingh/virus/a.tsv  --predict_file=/home/junmingh/virus/a_scores.tsv
+  # --test_file='/home/junmingh/virus/a.tsv|/home/junmingh/virus/b.tsv'
+  # --test_file='/home/junmingh/virus/a.tsv|/home/junmingh/virus/b.tsv'  --predict_file='/home/junmingh/virus/a_scores.tsv|/home/junmingh/virus/b_scores.tsv'
+  if FLAGS.do_predict:
+    if '' == FLAGS.test_files:  # if FLAGS.test_files is missing, process a single file FLAGS.test_file
+      FLAGS.test_files = [FLAGS.test_file]
+    else:
+      FLAGS.test_files = FLAGS.test_files.split('|')  # ['/home/junmingh/virus/data-bert/test1.tsv', '/home/junmingh/virus/data-bert/test2.tsv']
+    print('FLAGS.test_files', FLAGS.test_files)
+    assert all(Path(test_file).is_absolute() for test_file in FLAGS.test_files)
+    if 'test_results.tsv' == FLAGS.predict_files:  # if FLAGS.predict_file is not specified
+      FLAGS.predict_files = [str(Path(test_file).parent / (Path(test_file).stem + '_results.tsv')) for test_file in FLAGS.test_files]  # ['/home/junmingh/virus/data-bert/test1_results.tsv', '/home/junmingh/virus/data-bert/test2_results.tsv']
+    else:
+      FLAGS.predict_files = FLAGS.predict_files.split('|') # ['/home/junmingh/virus/data-bert/test1_scores.tsv', '/home/junmingh/virus/data-bert/test2_scores.tsv']
+      assert len(FLAGS.predict_files) == len(FLAGS.test_files)
+    print('FLAGS.predict_files', FLAGS.predict_files)
+    for test_file, predict_file in zip(FLAGS.test_files, FLAGS.predict_files):
+        print('task', test_file, predict_file)
+  # Added by junming: require FLAGS.test_file be (a list of) absolute path, require FLAGS.predict_file be absolute path or missing
+
   processor = processors[task_name]()
 
   label_list = processor.get_labels()
@@ -1017,63 +1042,51 @@ def main(_):
         writer.write("%s = %s\n" % (key, str(result[key])))
 
   if FLAGS.do_predict:
-    predict_examples = processor.get_test_examples(data_dir=FLAGS.data_dir, filename=FLAGS.test_file)
-    num_actual_predict_examples = len(predict_examples)
-    if FLAGS.use_tpu:
-      # TPU requires a fixed batch size for all batches, therefore the number
-      # of examples must be a multiple of the batch size, or else examples
-      # will get dropped. So we pad with fake examples which are ignored
-      # later on.
-      while len(predict_examples) % FLAGS.predict_batch_size != 0:
-        predict_examples.append(PaddingInputExample())
+    for test_file, predict_file in zip(FLAGS.test_files, FLAGS.predict_files):
+      predict_examples = processor.get_test_examples(data_dir=FLAGS.data_dir, filename=test_file)
+      num_actual_predict_examples = len(predict_examples)
+      if FLAGS.use_tpu:
+        # TPU requires a fixed batch size for all batches, therefore the number
+        # of examples must be a multiple of the batch size, or else examples
+        # will get dropped. So we pad with fake examples which are ignored
+        # later on.
+        while len(predict_examples) % FLAGS.predict_batch_size != 0:
+          predict_examples.append(PaddingInputExample())
 
-    predict_file = os.path.join(FLAGS.output_dir, "predict.tf_record")
-    file_based_convert_examples_to_features(predict_examples, label_list,
-                                            FLAGS.max_seq_length, tokenizer,
-                                            predict_file)
+      predict_file = os.path.join(FLAGS.output_dir, "predict.tf_record")
+      file_based_convert_examples_to_features(predict_examples, label_list,
+                                              FLAGS.max_seq_length, tokenizer,
+                                              predict_file)
 
-    tf.logging.info("***** Running prediction*****")
-    tf.logging.info("  Num examples = %d (%d actual, %d padding)",
-                    len(predict_examples), num_actual_predict_examples,
-                    len(predict_examples) - num_actual_predict_examples)
-    tf.logging.info("  Batch size = %d", FLAGS.predict_batch_size)
+      tf.logging.info("***** Running prediction*****")
+      tf.logging.info("  Num examples = %d (%d actual, %d padding)",
+                      len(predict_examples), num_actual_predict_examples,
+                      len(predict_examples) - num_actual_predict_examples)
+      tf.logging.info("  Batch size = %d", FLAGS.predict_batch_size)
 
-    predict_drop_remainder = True if FLAGS.use_tpu else False
-    predict_input_fn = file_based_input_fn_builder(
-        input_file=predict_file,
-        seq_length=FLAGS.max_seq_length,
-        is_training=False,
-        drop_remainder=predict_drop_remainder)
+      predict_drop_remainder = True if FLAGS.use_tpu else False
+      predict_input_fn = file_based_input_fn_builder(
+          input_file=predict_file,
+          seq_length=FLAGS.max_seq_length,
+          is_training=False,
+          drop_remainder=predict_drop_remainder)
 
-    result = estimator.predict(input_fn=predict_input_fn)
+      result = estimator.predict(input_fn=predict_input_fn)
 
-    # Added by junming: generate the output file for prediction "/home/junmingh/virus/data-bert/test_result.tsv"
-    test_file = Path(FLAGS.test_file)
-    if Path(FLAGS.predict_file).is_absolute():  # if FLAGS.predict_file specifies a full path, do nothing. FLAGS.predict_file = '/home/junmingh/virus/data-bert/output.tsv'
-        output_predict_file = str(FLAGS.predict_file)
-    else:  # if FLAGS.predict_file specifies a relative filename path, infer its location from FLAGS.test_file or FLAGS.data_dir. FLAGS.predict_file = 'test_results.tsv'
-        if test_file.is_absolute():  # if FLAGS.test_file gives a location, use it
-            output_predict_file = str(test_file.parent / FLAGS.predict_file)  # ./test_results.tsv
-        else:  # if FLAGS.test_file does not give a location, use FLAGS.data_dir
-            output_predict_file = str(Path(FLAGS.data_dir) / FLAGS.predict_file)  # equivalent to os.path.join(FLAGS.data_dir, "test_results.tsv")
-    # if test_file.is_absolute():  # FLAGS.test_file="/home/junmingh/virus/data-bert/test.tsv"
-    #     output_predict_file = str(test_file.parent / (test_file.stem + '_results' + test_file.suffix))
-    # else:  # FLAGS.test_file="test.tsv"
-    #     output_predict_file = str(Path(FLAGS.data_dir) / (test_file.stem + '_results' + test_file.suffix))
-    # output_predict_file = os.path.join(FLAGS.data_dir, "test_results.tsv")
-    with tf.gfile.GFile(output_predict_file, "w") as writer:
-      num_written_lines = 0
-      tf.logging.info("***** Predict results *****")
-      for (i, prediction) in enumerate(result):
-        probabilities = prediction["probabilities"]
-        if i >= num_actual_predict_examples:
-          break
-        output_line = "\t".join(
-            str(class_probability)
-            for class_probability in probabilities) + "\n"
-        writer.write(output_line)
-        num_written_lines += 1
-    assert num_written_lines == num_actual_predict_examples
+      # Added by junming: generate the output file for prediction "/home/junmingh/virus/data-bert/test_result.tsv"
+      with tf.gfile.GFile(predict_file, "w") as writer:
+        num_written_lines = 0
+        tf.logging.info("***** Predict results *****")
+        for (i, prediction) in enumerate(result):
+          probabilities = prediction["probabilities"]
+          if i >= num_actual_predict_examples:
+            break
+          output_line = "\t".join(
+              str(class_probability)
+              for class_probability in probabilities) + "\n"
+          writer.write(output_line)
+          num_written_lines += 1
+      assert num_written_lines == num_actual_predict_examples
 
 
 if __name__ == "__main__":
