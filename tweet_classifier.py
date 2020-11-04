@@ -130,9 +130,9 @@ flags.DEFINE_string('identifier', 'bert', 'Name of this configuration')
 flags.DEFINE_string(name='train_file', default='train.tsv', help='file name to train')
 flags.DEFINE_string(name='dev_file', default='dev.tsv', help='file name to validate')
 flags.DEFINE_string(name='test_file', default='test.tsv', help='file name to predict')
-flags.DEFINE_string(name='predict_file', default='test_results.tsv', help='file name to output')
+flags.DEFINE_string(name='output_file', default='', help='file name to output')
 flags.DEFINE_string(name='test_files', default='', help='files to predict')  # reserved
-flags.DEFINE_string(name='predict_files', default='test_results.tsv', help='files to output')  # reserved
+flags.DEFINE_string(name='output_files', default='', help='files to output')  # reserved
 
 class InputExample(object):
   """A single training/test example for simple sequence classification."""
@@ -905,28 +905,37 @@ def main(_):
   if task_name not in processors:
     raise ValueError("Task not found: %s" % (task_name))
 
-  # Added by junming: require FLAGS.test_file be (a list of) absolute path, require FLAGS.predict_file be absolute path or missing
-  # test_file=/home/junmingh/virus/data-bert/test1.tsv|/home/junmingh/virus/data-bert/test2.tsv
+  # Added by junming: require FLAGS.test_file be (a list of) absolute path, require FLAGS.output_file be absolute path or missing
   # --test_file=/home/junmingh/virus/a.tsv
-  # --test_file=/home/junmingh/virus/a.tsv  --predict_file=/home/junmingh/virus/a_scores.tsv
-  # --test_file='/home/junmingh/virus/a.tsv|/home/junmingh/virus/b.tsv'
-  # --test_file='/home/junmingh/virus/a.tsv|/home/junmingh/virus/b.tsv'  --predict_file='/home/junmingh/virus/a_scores.tsv|/home/junmingh/virus/b_scores.tsv'
+  # --test_file=/home/junmingh/virus/a.tsv  --output_file=/home/junmingh/virus/a_scores.tsv
+  # --test_files='/home/junmingh/virus/a.tsv|/home/junmingh/virus/b.tsv'
+  # --test_files='/home/junmingh/virus/a.tsv|/home/junmingh/virus/b.tsv'  --output_files='/home/junmingh/virus/a_scores.tsv|/home/junmingh/virus/b_scores.tsv'
   if FLAGS.do_predict:
-    if '' == FLAGS.test_files:  # if FLAGS.test_files is missing, process a single file FLAGS.test_file
+    if ('' == FLAGS.test_files) & ('' == FLAGS.test_file):  # if both FLAGS.test_file and FLAGS.test_files are missing, raise an error
+      raise ValueError('test_file and test_files cannot be both unspecified.')
+    elif '' == FLAGS.test_files:  # if FLAGS.test_file is specified and FLAGS.test_files is missing, process a single file FLAGS.test_file
       FLAGS.test_files = [FLAGS.test_file]
-    else:
+    else:  # if FLAGS.test_files is specified, process a list of files in it
       FLAGS.test_files = FLAGS.test_files.split('|')  # ['/home/junmingh/virus/data-bert/test1.tsv', '/home/junmingh/virus/data-bert/test2.tsv']
-    print('FLAGS.test_files', FLAGS.test_files)
+    # require every test_file have absolute path
     assert all(Path(test_file).is_absolute() for test_file in FLAGS.test_files)
-    if 'test_results.tsv' == FLAGS.predict_files:  # if FLAGS.predict_file is not specified
-      FLAGS.predict_files = [str(Path(test_file).parent / (Path(test_file).stem + '_results.tsv')) for test_file in FLAGS.test_files]  # ['/home/junmingh/virus/data-bert/test1_results.tsv', '/home/junmingh/virus/data-bert/test2_results.tsv']
-    else:
-      FLAGS.predict_files = FLAGS.predict_files.split('|') # ['/home/junmingh/virus/data-bert/test1_scores.tsv', '/home/junmingh/virus/data-bert/test2_scores.tsv']
-      assert len(FLAGS.predict_files) == len(FLAGS.test_files)
-    print('FLAGS.predict_files', FLAGS.predict_files)
-    for test_file, predict_file in zip(FLAGS.test_files, FLAGS.predict_files):
-        print('task', test_file, predict_file)
-  # Added by junming: require FLAGS.test_file be (a list of) absolute path, require FLAGS.predict_file be absolute path or missing
+
+
+    if ('' == FLAGS.output_file) & ('' == FLAGS.output_files):  # if both FLAGS.output_file and FLAGS.output_files are missing, generate from FLAGS.test_files
+      FLAGS.output_files = [str(Path(test_file).parent / (Path(test_file).stem + '_results.tsv')) for test_file in FLAGS.test_files]  # ['/home/junmingh/virus/data-bert/test1_results.tsv', '/home/junmingh/virus/data-bert/test2_results.tsv']
+    elif '' == FLAGS.output_files:  # if FLAGS.output_file is specified and FLAGS.output_files is missing, output a single file FLAGS.output_file
+      FLAGS.output_files = [FLAGS.output_file]
+    else:  # if FLAGS.output_files is specified, process a list of files in it
+      FLAGS.output_files = FLAGS.output_files.split('|') # ['/home/junmingh/virus/data-bert/test1_scores.tsv', '/home/junmingh/virus/data-bert/test2_scores.tsv']
+    # require equal number of output_files and test_files
+    assert len(FLAGS.output_files) == len(FLAGS.test_files)
+    # require every test_file have absolute path
+    assert all(Path(output_file).is_absolute() for output_file in FLAGS.output_files)
+    tf.logging.info('FLAGS.test_files: ' + ','.join(FLAGS.test_files))
+    tf.logging.info('FLAGS.output_files: ' + ','.join(FLAGS.output_files))
+    for test_file, output_file in zip(FLAGS.test_files, FLAGS.output_files):
+        tf.logging.info('task: ' + test_file + ', ' + output_file)
+  # Added by junming: require FLAGS.test_file be (a list of) absolute path, require FLAGS.output_file be absolute path or missing
 
   processor = processors[task_name]()
 
@@ -1042,7 +1051,9 @@ def main(_):
         writer.write("%s = %s\n" % (key, str(result[key])))
 
   if FLAGS.do_predict:
-    for test_file, predict_file in zip(FLAGS.test_files, FLAGS.predict_files):
+    for test_file, output_file in zip(FLAGS.test_files, FLAGS.output_files):
+      tf.logging.info("test_file=" + test_file)
+      tf.logging.info("output_file=" + output_file)
       predict_examples = processor.get_test_examples(data_dir=FLAGS.data_dir, filename=test_file)
       num_actual_predict_examples = len(predict_examples)
       if FLAGS.use_tpu:
@@ -1074,7 +1085,8 @@ def main(_):
       result = estimator.predict(input_fn=predict_input_fn)
 
       # Added by junming: generate the output file for prediction "/home/junmingh/virus/data-bert/test_result.tsv"
-      with tf.gfile.GFile(predict_file, "w") as writer:
+      tf.logging.info("output_file=" + output_file)
+      with tf.gfile.GFile(output_file, "w") as writer:
         num_written_lines = 0
         tf.logging.info("***** Predict results *****")
         for (i, prediction) in enumerate(result):
@@ -1107,7 +1119,7 @@ if __name__ == "__main__":
   flags.mark_flag_as_required("bert_config_file")
   flags.mark_flag_as_required("output_dir")
 
-  logger.info('Start')
-  logger.info('data_dir: ' + str(FLAGS.data_dir))
+  tf.logging.info('Start')
+  # tf.logging.info('data_dir: ' + str(FLAGS.data_dir))
 
   tf.app.run()
