@@ -451,17 +451,22 @@ class tweet_pointwise_processor(DataProcessor):
     """Creates examples for the training and dev sets."""
     examples = []
     for (i, line) in enumerate(lines):
-      if i == 0:
-        continue
-      guid = "%s-%s" % (set_type, i)
-      text_a = tokenization.convert_to_unicode(line[2])
-      text_b = None
-      if set_type == "test":
-        label = "0"
-      else:
-        label = tokenization.convert_to_unicode(line[0])
-      examples.append(
-          InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
+      try:
+        if i == 0:
+          continue
+        guid = "%s-%s" % (set_type, i)
+        text_a = tokenization.convert_to_unicode(line[2])
+        text_b = None
+        if set_type == "test":
+          label = "0"
+        else:
+          label = tokenization.convert_to_unicode(line[0])
+        examples.append(
+            InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
+      except Exception as error:
+        tf.logging.error("error when reading line " + str(i) + ": " + str(line))
+        tf.logging.error(type(error), error)
+        raise
     return examples
 
 
